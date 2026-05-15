@@ -1,20 +1,30 @@
 import { useState } from 'react';
 import styles from './TaskList.module.css';
-import { Plus, Edit2, Trash2, Clock, Tag } from 'lucide-react';
+import { Plus, Edit2, Trash2, Clock, Tag, CheckSquare, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function TaskList({ tasks, refreshTasks, loading }) {
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(null);
 
-  const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this task?')) {
-      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  const confirmDelete = async () => {
+    if (taskToDelete) {
+      await fetch(`/api/tasks/${taskToDelete}`, { method: 'DELETE' });
       refreshTasks();
+      setTaskToDelete(null);
     }
   };
 
-  const openEdit = (task) => {
+  const handleDeleteClick = (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTaskToDelete(id);
+  };
+
+  const openEdit = (e, task) => {
+    e.preventDefault();
+    e.stopPropagation();
     setEditingTask(task);
     setShowForm(true);
   };
@@ -42,8 +52,8 @@ export default function TaskList({ tasks, refreshTasks, loading }) {
                   {task.description && <div className={styles.taskDesc}>{task.description}</div>}
                 </div>
                 <div className={styles.taskActions}>
-                  <button className={styles.iconButton} onClick={() => openEdit(task)}><Edit2 size={16} /></button>
-                  <button className={`${styles.iconButton} ${styles.delete}`} onClick={() => handleDelete(task._id)}><Trash2 size={16} /></button>
+                  <button className={styles.iconButton} onClick={(e) => openEdit(e, task)}><Edit2 size={16} /></button>
+                  <button className={`${styles.iconButton} ${styles.delete}`} onClick={(e) => handleDeleteClick(e, task._id)}><Trash2 size={16} /></button>
                 </div>
               </div>
               <div className={styles.taskMeta}>
@@ -66,11 +76,30 @@ export default function TaskList({ tasks, refreshTasks, loading }) {
                     ⏱️ {Math.floor(task.timeSpent / 60)}m {task.timeSpent % 60}s
                   </span>
                 )}
+                {task.subtasks && task.subtasks.length > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)' }}>
+                    <CheckSquare size={14} /> 
+                    {task.subtasks.filter(st => st.isCompleted).length}/{task.subtasks.length}
+                  </span>
+                )}
               </div>
             </div>
           ))
         )}
       </div>
+
+      {taskToDelete && (
+        <div className={styles.modalOverlay}>
+          <div className={`${styles.modal} glass-panel`} style={{ maxWidth: '350px', textAlign: 'center', padding: '2rem' }}>
+            <h3 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>Delete Task?</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>This action cannot be undone.</p>
+            <div className={styles.modalActions} style={{ justifyContent: 'center', gap: '1rem' }}>
+              <button className={styles.cancelButton} onClick={() => setTaskToDelete(null)}>Cancel</button>
+              <button className={styles.addButton} style={{ background: 'var(--danger-color)' }} onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <TaskForm 
@@ -85,8 +114,9 @@ export default function TaskList({ tasks, refreshTasks, loading }) {
 
 function TaskForm({ task, onClose, refreshTasks }) {
   const [formData, setFormData] = useState(task || {
-    title: '', description: '', category: 'Work', priority: 'Medium', status: 'Todo', deadline: ''
+    title: '', description: '', category: 'Work', priority: 'Medium', status: 'Todo', deadline: '', subtasks: []
   });
+  const [newSubtask, setNewSubtask] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -101,6 +131,27 @@ function TaskForm({ task, onClose, refreshTasks }) {
     
     refreshTasks();
     onClose();
+  };
+
+  const addSubtask = () => {
+    if (newSubtask.trim() === '') return;
+    setFormData({
+      ...formData,
+      subtasks: [...(formData.subtasks || []), { title: newSubtask, isCompleted: false }]
+    });
+    setNewSubtask('');
+  };
+
+  const removeSubtask = (index) => {
+    const updated = [...formData.subtasks];
+    updated.splice(index, 1);
+    setFormData({ ...formData, subtasks: updated });
+  };
+
+  const toggleSubtask = (index) => {
+    const updated = [...formData.subtasks];
+    updated[index].isCompleted = !updated[index].isCompleted;
+    setFormData({ ...formData, subtasks: updated });
   };
 
   return (
@@ -146,6 +197,28 @@ function TaskForm({ task, onClose, refreshTasks }) {
             <label>Deadline</label>
             <input type="date" className={styles.input} value={formData.deadline ? formData.deadline.substring(0,10) : ''} onChange={e => setFormData({...formData, deadline: e.target.value})} />
           </div>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label>Subtasks</label>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <input 
+              className={styles.input} 
+              style={{ flex: 1 }}
+              placeholder="Add a smaller step..." 
+              value={newSubtask} 
+              onChange={e => setNewSubtask(e.target.value)} 
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } }}
+            />
+            <button type="button" onClick={addSubtask} className={styles.addButton} style={{ padding: '0.5rem' }}><Plus size={18} /></button>
+          </div>
+          {formData.subtasks && formData.subtasks.map((st, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px', marginBottom: '0.25rem' }}>
+              <input type="checkbox" checked={st.isCompleted} onChange={() => toggleSubtask(i)} />
+              <span style={{ flex: 1, textDecoration: st.isCompleted ? 'line-through' : 'none', color: st.isCompleted ? 'var(--text-muted)' : 'inherit' }}>{st.title}</span>
+              <button type="button" onClick={() => removeSubtask(i)} style={{ background: 'transparent', border: 'none', color: 'var(--danger-color)', cursor: 'pointer' }}><X size={14} /></button>
+            </div>
+          ))}
         </div>
 
         <div className={styles.modalActions}>

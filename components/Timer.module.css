@@ -62,3 +62,29 @@
   border-radius: 8px;
   outline: none;
 }
+
+.modeTabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.modeTab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modeTab.active {
+  background: var(--primary-color);
+  color: white;
+}

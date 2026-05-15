@@ -1,6 +1,11 @@
 import mongoose from 'mongoose';
 
 const TaskSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
   title: {
     type: String,
     required: [true, 'Please provide a title for this task.'],
@@ -36,6 +41,10 @@ const TaskSchema = new mongoose.Schema({
     type: Number, // in seconds
     default: 0,
   },
+  subtasks: [{
+    title: { type: String, required: true },
+    isCompleted: { type: Boolean, default: false }
+  }],
   createdAt: {
     type: Date,
     default: Date.now,
